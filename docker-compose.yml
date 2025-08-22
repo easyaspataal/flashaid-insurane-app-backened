@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: insurance-backend
+    ports:
+      - "10040:10040"
+    env_file:
+      - .env
+    restart: always
