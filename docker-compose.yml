@@ -1,11 +1,21 @@
-version: '3.8'
+version: "3.9"
 
 services:
   backend:
     build: .
-    container_name: insurance-backend
+    container_name: insurance-backend-stage
+    # Bind only to localhost so it’s not exposed publicly
     ports:
-      - "10040:10040"
+      - "127.0.0.1:10002:10002"
     env_file:
       - .env
-    restart: always
+    environment:
+      - PORT=10002
+      # If you want to override any .env value, add here
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:10002/health', r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s

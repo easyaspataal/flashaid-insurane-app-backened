@@ -1,23 +1,14 @@
-FROM node:18-alpine
+FROM node:18
 
-# Create app directory
-RUN mkdir -p /usr/src/app
-#Set the created directory
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Install app dependencies
-# A wildcard is used to ensure both package.json AND package-lock.json are copied
-# where available (npm@5+)
-COPY package*.json /usr/src/app/
+COPY package*.json ./
+RUN npm ci --only=production
 
-RUN npm install
-# If you are building your code for production
-# RUN npm install --only=production
+COPY . .
 
-# Bundle app source
-COPY . /usr/src/app
+# Tell Node what port to bind (your code still uses process.env.PORT)
+ENV PORT=10002
 
-EXPOSE 10040
-
-# Change this to whatever is the executable, it could be either server.js or app.js
-CMD [ "npm", "start" ]
+EXPOSE 10002
+CMD ["npm", "start"]
