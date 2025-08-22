@@ -8,7 +8,7 @@ import { checkConnection } from './db/pgDb.js';
 // http://localhost:3000/api/crudList
 
 const app = express();
-const port = 3000;
+const PORT = process.env.PORT || 3000;
 checkConnection(); 
 
 app.use(cors())
