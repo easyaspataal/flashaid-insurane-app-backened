@@ -8,7 +8,7 @@ import { checkConnection } from './db/pgDb.js';
 // http://localhost:3000/api/crudList
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 10002;
 checkConnection(); 
 
 app.use(cors())
@@ -20,6 +20,6 @@ app.use("/api/insurance", insuranceRoutes);
 // app.use('/api/payment', razorpayRoutes);
 
 app.listen(PORT, () => {
-   console.log(`Server listening on ${port}`);
+   console.log(`Server listening on ${PORT}`);
 });
 
