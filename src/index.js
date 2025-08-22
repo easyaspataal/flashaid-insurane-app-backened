@@ -19,7 +19,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use("/api/insurance", insuranceRoutes);
 // app.use('/api/payment', razorpayRoutes);
 
-app.listen(port, () => {
+app.listen(PORT, () => {
    console.log(`Server listening on ${port}`);
 });
 
