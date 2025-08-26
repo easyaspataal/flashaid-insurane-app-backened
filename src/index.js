@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import insuranceRoutes from './insuranceApi/insuranceRoutes.js';
+import payuRoutes from './payU/payu.routes.js'; 
 import { checkConnection } from './db/pgDb.js';
 
 const app = express();
@@ -11,7 +12,8 @@ checkConnection();
 // ✅ Configure CORS
 app.use(cors({
   origin: [
-    "http://localhost:3000",           
+    "http://localhost:3000",
+    "http://172.168.201.98:3000", // my mac ip address running in my android mobile browser           
     "https://uat-k42.insuranceapp.flashaid.in" 
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -28,6 +30,9 @@ app.use(express.urlencoded({ extended: false }));
 
 // ✅ API Routes
 app.use("/api/insurance", insuranceRoutes);
+app.use("/api/payu", payuRoutes);
+
+
 
 // ✅ Basic health check route
 app.get('/', (req, res) => {
@@ -46,9 +51,13 @@ app.use('*', (req, res) => {
 });
 
 // ✅ Start server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📱 Health check: http://localhost:${PORT}`);
   console.log(`🔗 API base: http://localhost:${PORT}/api/insurance`);
 });
+
+
+
+
