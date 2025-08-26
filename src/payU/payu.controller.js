@@ -337,15 +337,15 @@ export async function verifyPayment(req, res) {
             console.log('status', status)
             if (status === 'success') {
                 console.log('[PayU] Payment successful via POST callback');
-                const successUrl = `http://localhost:3000/PaymentSuccessfulScreen?txnid=${encodeURIComponent(txnid)}`;
+                const successUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentSuccessfulScreen?txnid=${encodeURIComponent(txnid)}`;
                 return res.send(createLoadingPage(successUrl, 2000));
             } else if (isCancelled) {
                 console.log('[PayU] Payment cancelled by user');
-                const cancelUrl = `http://localhost:3000/PayUPayments`;
+                const cancelUrl = `https://uat-k42.insuranceapp.flashaid.in/PayUPayments`;
                 return res.send(createLoadingPage(cancelUrl, 2000));
             } else {
                 console.log('[PayU] Payment failed via POST callback, status:', status);
-                const failureUrl = `http://localhost:3000/PaymentFailedScreen?status=${encodeURIComponent(status)}`;
+                const failureUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=${encodeURIComponent(status)}`;
                 return res.send(createLoadingPage(failureUrl, 2000));
             }
 
@@ -359,21 +359,21 @@ export async function verifyPayment(req, res) {
         console.log('[PayU] API verification result:', statusObj);
 
         if (!statusObj) {
-            const failureUrl = `http://localhost:3000/PaymentFailedScreen?status=not_found`;
+            const failureUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=not_found`;
             return res.send(createLoadingPage(failureUrl, 2000));
         }
 
         if (statusObj.status === "success") {
-            const successUrl = `http://localhost:3000/PaymentSuccessfulScreen?txnid=${encodeURIComponent(txnid)}`;
+            const successUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentSuccessfulScreen?txnid=${encodeURIComponent(txnid)}`;
             return res.send(createLoadingPage(successUrl, 2000));
         }
 
-        const failureUrl = `http://localhost:3000/PaymentFailedScreen?status=${encodeURIComponent(statusObj.status)}`;
+        const failureUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=${encodeURIComponent(statusObj.status)}`;
         return res.send(createLoadingPage(failureUrl, 2000));
 
     } catch (err) {
         console.error("[PayU] verifyPayment error:", err);
-        const errorUrl = `http://localhost:3000/PaymentFailedScreen?status=verification_failed`;
+        const errorUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=verification_failed`;
         return res.send(createLoadingPage(errorUrl, 2000));
     }
 }
