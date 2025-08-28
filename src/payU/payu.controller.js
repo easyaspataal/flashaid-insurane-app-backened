@@ -18,7 +18,6 @@ function buildHash({
 
 export async function redirectPage(req, res) {
     const txnid = req.params.id;
-    console.log(`[PayU] Redirect page called for txnid: ${txnid}`);
 
     const loadingHTML = `
     <!DOCTYPE html>
@@ -144,7 +143,6 @@ export async function redirectPage(req, res) {
 export async function initiatePayment(req, res) {
     try {
         const { PAYU_KEY, PAYU_SALT } = PAYU_ENV;
-        console.log('Initiate payment request body:', req.body);
 
         const { txnid, amount, productinfo, firstname, email, phone, udf5 } = req.body || {};
 
@@ -153,7 +151,6 @@ export async function initiatePayment(req, res) {
             return res.status(400).json({ error: "Missing required fields" });
 
         const callbackBase = `${req.protocol}://${req.get("host")}/api/payu/verify/${encodeURIComponent(txnid)}`;
-        console.log('Callback URLs:', callbackBase);
 
         const payload = {
             isAmountFilledByCustomer: false,
@@ -179,7 +176,6 @@ export async function initiatePayment(req, res) {
             }),
         };
 
-        console.log('PayU payload:', payload);
         const response = await payuClient.paymentInitiate(payload);
         return res.send(response);
     } catch (err) {
@@ -192,10 +188,6 @@ export async function initiatePayment(req, res) {
 export async function verifyPayment(req, res) {
     try {
         const txnid = req.params.id;
-        console.log(`[PayU] Verify payment called for txnid: ${txnid}`);
-        console.log(`[PayU] Method: ${req.method}`);
-        console.log(`[PayU] Body:`, req.body);
-        console.log(`[PayU] Query:`, req.query);
 
         // Create an intermediate loading page to prevent white screen
         const createLoadingPage = (redirectUrl, delay = 2000) => {
@@ -320,27 +312,16 @@ export async function verifyPayment(req, res) {
                 field9,
             } = req.body;
 
-            console.log('[PayU] POST callback data:', {
-                status,
-                txnid: bodyTxnid,
-                amount,
-                productinfo,
-                firstname,
-                email
-            });
 
             const isCancelled =
                 String(unmappedstatus || '').toLowerCase() === 'usercancelled' ||
                 /cancel/i.test(String(error_Message || '')) ||
                 /cancel/i.test(String(field9 || ''));
             // Use the status directly from PayU's callback
-            console.log('status', status)
             if (status === 'success') {
-                console.log('[PayU] Payment successful via POST callback');
                 const successUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentSuccessfulScreen?txnid=${encodeURIComponent(txnid)}`;
                 return res.send(createLoadingPage(successUrl, 2000));
             } else if (isCancelled) {
-                console.log('[PayU] Payment cancelled by user');
                 const cancelUrl = `https://uat-k42.insuranceapp.flashaid.in/PayUPayments`;
                 return res.send(createLoadingPage(cancelUrl, 2000));
             } else {
@@ -352,11 +333,9 @@ export async function verifyPayment(req, res) {
         }
 
         // Fallback: verify via PayU API (for GET requests or if POST doesn't have status)
-        console.log('[PayU] Verifying payment via PayU API...');
         const data = await payuClient.verifyPayment(txnid);
         const statusObj = data?.transaction_details?.[txnid];
 
-        console.log('[PayU] API verification result:', statusObj);
 
         if (!statusObj) {
             const failureUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=not_found`;
