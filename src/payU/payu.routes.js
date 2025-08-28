@@ -5,9 +5,9 @@ const router = express.Router();
 
 // Debug middleware
 router.use((req, res, next) => {
-  console.log(`[PayU Route] ${req.method} ${req.path}`);
-  console.log('Body:', req.body);
-  console.log('Query:', req.query);
+  // console.log(`[PayU Route] ${req.method} ${req.path}`);
+  // console.log('Body:', req.body);
+  // console.log('Query:', req.query);
   next();
 });
 

@@ -175,6 +175,7 @@ export async function initiatePayment(req, res) {
                 email,
                 udf5,
             }),
+            drop_category:"CASH,NEFTRTGS,UPI,BNPL"
         };
 
         const response = await payuClient.paymentInitiate(payload);
@@ -192,7 +193,6 @@ export async function verifyPayment(req, res) {
 
         // Create an intermediate loading page to prevent white screen
         const createLoadingPage = (redirectUrl, delay = 2000) => {
-          console.log('redirectUrl',redirectUrl)
             return `
         <!DOCTYPE html>
         <html lang="en">
