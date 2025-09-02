@@ -14,7 +14,8 @@ app.use(cors({
   origin: [
     "http://localhost:3000",
     "http://172.168.201.98:3000", // my mac ip address running in my android mobile browser           
-    "https://uat-k42.insuranceapp.flashaid.in" 
+    "https://uat-k42.insuranceapp.flashaid.in", 
+    "https://expats.flashaid.in", 
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],

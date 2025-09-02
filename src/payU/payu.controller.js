@@ -345,13 +345,13 @@ export async function verifyPayment(req, res) {
         /cancel/i.test(String(body.field9 || ""));
 
       if (String(body.status || "").toLowerCase() === "success") {
-        const successUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentSuccessfulScreen?txnid=${encodeURIComponent(txnid)}`;
+        const successUrl = `https://expats.flashaid.in/PaymentSuccessfulScreen?txnid=${encodeURIComponent(txnid)}`;
         return res.send(createLoadingPage(successUrl, 2000));
       } else if (isCancelled) {
-        const cancelUrl = `https://uat-k42.insuranceapp.flashaid.in/PayUPayments`;
+        const cancelUrl = `https://expats.flashaid.in/PayUPayments`;
         return res.send(createLoadingPage(cancelUrl, 2000));
       } else {
-        const failureUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=${encodeURIComponent(body.status)}`;
+        const failureUrl = `https://expats.flashaid.in/PaymentFailedScreen?status=${encodeURIComponent(body.status)}`;
         return res.send(createLoadingPage(failureUrl, 2000));
       }
     }
@@ -362,7 +362,7 @@ export async function verifyPayment(req, res) {
 
     const statusObj = data?.transaction_details?.[txnid];
     if (!statusObj) {
-      const failureUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=not_found`;
+      const failureUrl = `https://expats.flashaid.in/PaymentFailedScreen?status=not_found`;
       return res.send(createLoadingPage(failureUrl, 2000));
     }
 
@@ -379,11 +379,11 @@ export async function verifyPayment(req, res) {
     }
 
     if (String(statusObj.status || "").toLowerCase() === "success") {
-      const successUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentSuccessfulScreen?txnid=${encodeURIComponent(txnid)}`;
+      const successUrl = `https://expats.flashaid.in/PaymentSuccessfulScreen?txnid=${encodeURIComponent(txnid)}`;
       return res.send(createLoadingPage(successUrl, 2000));
     }
 
-    const failureUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=${encodeURIComponent(statusObj.status)}`;
+    const failureUrl = `https://expats.flashaid.in/PaymentFailedScreen?status=${encodeURIComponent(statusObj.status)}`;
     return res.send(createLoadingPage(failureUrl, 2000));
 
   } catch (err) {
@@ -402,7 +402,7 @@ export async function verifyPayment(req, res) {
       console.error("Failed to store error transaction:", dbError);
     }
 
-    const errorUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=verification_failed`;
+    const errorUrl = `https://expats.flashaid.in/PaymentFailedScreen?status=verification_failed`;
     return res.send(createLoadingPage(errorUrl, 2000));
   }
 }
