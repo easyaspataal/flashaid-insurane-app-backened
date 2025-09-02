@@ -1,25 +1,65 @@
 import crypto from "crypto";
 import { payuClient, PAYU_ENV } from "./payu.instance.js";
+import { updateInsuranceStatusByTxnId } from "../insuranceApi/insuranceModel.js";
 
 /** Build hash string with 15 empty UDFs */
-function buildHash({
-    key, salt, txnid, amount, productinfo, firstname, email, udf5 = ""
-}) {
-    const parts = [
-        key, txnid, amount, productinfo, firstname, email,
-        "", "", "", "",  // udf1..udf4 empty
-        udf5,            // udf5 value
-        "", "", "", "", "", // udf6..udf10 empty
-        salt
-    ];
-    return crypto.createHash("sha512").update(parts.join("|")).digest("hex");
+function buildHash({ key, salt, txnid, amount, productinfo, firstname, email, udf5 = "" }) {
+  const parts = [
+    key, txnid, amount, productinfo, firstname, email,
+    "", "", "", "",      // udf1..udf4 empty
+    udf5,                // udf5 value
+    "", "", "", "", "",  // udf6..udf10 empty
+    salt
+  ];
+  return crypto.createHash("sha512").update(parts.join("|")).digest("hex");
 }
 
+/** Map PayU payload -> only columns that exist in qatar_insurance_transactions (NO EXTRAS) */
+function toDbTransactionDetails(src = {}) {
+  return {
+    payment_mode: src.payment_mode || src.mode || null,
+    bank_ref_num: src.bank_ref_num || src.bankrefno || null,
+    pg_transaction_id: src.pg_transaction_id || src.mihpayid || null,
+    addedon: src.addedon || null,
+    error_message: src.error_message || src.error_Message || src.error || null,
+    field9: src.field9 || null,
+    mihpayid: src.mihpayid || null,
+    net_amount_debit: src.net_amount_debit || null,
+    payment_source: src.payment_source || null,
+    pg_type: src.pg_type || src.PG_TYPE || null,
+    bankcode: src.bankcode || null,
+    hash_value: src.hash_value || src.hash || null,
+    error_code: src.error_code || src.error || null,
+    phone: src.phone || null,
+  };
+}
+
+/** Normalize PayU status to your model's allowed set */
+function normalizeStatus(status, unmappedstatus) {
+  const s = String(status || "").toLowerCase();
+  const u = String(unmappedstatus || "").toLowerCase();
+
+  if (s === "success" || u === "captured") return "SUCCESS";
+  if (s === "pending" || s === "awaited" || s === "auth") return "PENDING";
+  return "FAILED";
+}
+
+/** Update qatar_insurance_transactions using your model (no extra fields) */
+async function storeTransactionDetails(transactionData) {
+  const txnid = transactionData.txnid;
+  const status = normalizeStatus(transactionData.status, transactionData.unmappedstatus);
+  const details = toDbTransactionDetails(transactionData);
+
+
+  // Update by transaction id; only allowed columns are set in the model
+  const updated = await updateInsuranceStatusByTxnId(txnid, status, details);
+  return updated;
+}
 
 export async function redirectPage(req, res) {
-    const txnid = req.params.id;
+  const txnid = req.params.id;
 
-    const loadingHTML = `
+  const loadingHTML = `
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -136,62 +176,49 @@ export async function redirectPage(req, res) {
     </html>
   `;
 
-    res.send(loadingHTML);
+  res.send(loadingHTML);
 }
 
 
 export async function initiatePayment(req, res) {
-    try {
-        const { PAYU_KEY, PAYU_SALT } = PAYU_ENV;
+  try {
+    const { PAYU_KEY, PAYU_SALT } = PAYU_ENV;
+    const { txnid, amount, productinfo, firstname, email, phone, udf5 } = req.body || {};
 
-        const { txnid, amount, productinfo, firstname, email, phone, udf5 } = req.body || {};
+    if (!PAYU_KEY || !PAYU_SALT) return res.status(400).json({ error: "Missing PAYU_KEY or PAYU_SALT" });
+    if (!txnid || !amount || !productinfo || !firstname || !email || !phone)
+      return res.status(400).json({ error: "Missing required fields" });
 
-        if (!PAYU_KEY || !PAYU_SALT) return res.status(400).json({ error: "Missing PAYU_KEY or PAYU_SALT" });
-        if (!txnid || !amount || !productinfo || !firstname || !email || !phone)
-            return res.status(400).json({ error: "Missing required fields" });
+    const callbackBase = `${req.protocol}s://${req.get("host")}/api/payu/verify/${encodeURIComponent(txnid)}`;
 
+    const payload = {
+      isAmountFilledByCustomer: false,
+      txnid,
+      amount,
+      currency: "QAR",
+      productinfo,
+      firstname,
+      email,
+      phone,
+      udf5,
+      surl: callbackBase,
+      furl: callbackBase,
+      hash: buildHash({ key: PAYU_KEY, salt: PAYU_SALT, txnid, amount, productinfo, firstname, email, udf5 }),
+      drop_category: "CASH,NEFTRTGS,UPI,BNPL"
+    };
 
-        const callbackBase = `${req.protocol}s://${req.get("host")}/api/payu/verify/${encodeURIComponent(txnid)}`;
-
-        const payload = {
-            isAmountFilledByCustomer: false,
-            txnid,
-            amount,
-            currency: "QAR",
-            productinfo,
-            firstname,
-            email,
-            phone,
-            udf5,
-            surl: callbackBase,  // Success URL
-            furl: callbackBase,  // Failure URL
-            hash: buildHash({
-                key: PAYU_KEY,
-                salt: PAYU_SALT,
-                txnid,
-                amount,
-                productinfo,
-                firstname,
-                email,
-                udf5,
-            }),
-            drop_category:"CASH,NEFTRTGS,UPI,BNPL"
-        };
-
-        const response = await payuClient.paymentInitiate(payload);
-        return res.send(response);
-    } catch (err) {
-        console.error("[PayU] initiatePayment error:", err);
-        return res.status(500).json({ error: "initiate_payment_failed" });
-    }
+    const response = await payuClient.paymentInitiate(payload);
+    return res.send(response);
+  } catch (err) {
+    console.error("[PayU] initiatePayment error:", err);
+    return res.status(500).json({ error: "initiate_payment_failed" });
+  }
 }
 
-
 export async function verifyPayment(req, res) {
-    try {
-        const txnid = req.params.id;
+  const txnid = req.params.id;
 
-        // Create an intermediate loading page to prevent white screen
+ // Create an intermediate loading page to prevent white screen
         const createLoadingPage = (redirectUrl, delay = 2000) => {
             return `
         <!DOCTYPE html>
@@ -298,63 +325,84 @@ export async function verifyPayment(req, res) {
         </body>
         </html>
       `;
-        };
+}
 
-        // PayU sends data via POST in the body
-        if (req.method === 'POST' && req.body) {
-            const {
-                status,
-                txnid: bodyTxnid,
-                amount,
-                productinfo,
-                firstname,
-                email,
-                unmappedstatus,
-                error_Message,
-                field9,
-            } = req.body;
+  try {
+    // 1) POST callback from PayU
+    if (req.method === "POST" && req.body) {
+      const body = req.body;
 
+      // Update DB (only allowed columns)
+      try {
+        await storeTransactionDetails({ ...body, txnid, source: "post_callback" });
+      } catch (dbError) {
+        console.error("Failed to update insurance from POST callback:", dbError);
+      }
 
-            const isCancelled =
-                String(unmappedstatus || '').toLowerCase() === 'usercancelled' ||
-                /cancel/i.test(String(error_Message || '')) ||
-                /cancel/i.test(String(field9 || ''));
-            // Use the status directly from PayU's callback
-            if (status === 'success') {
-                const successUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentSuccessfulScreen?txnid=${encodeURIComponent(txnid)}`;
-                return res.send(createLoadingPage(successUrl, 2000));
-            } else if (isCancelled) {
-                const cancelUrl = `https://uat-k42.insuranceapp.flashaid.in/PayUPayments`;
-                return res.send(createLoadingPage(cancelUrl, 2000));
-            } else {
-                console.log('[PayU] Payment failed via POST callback, status:', status);
-                const failureUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=${encodeURIComponent(status)}`;
-                return res.send(createLoadingPage(failureUrl, 2000));
-            }
+      const isCancelled =
+        String(body.unmappedstatus || "").toLowerCase() === "usercancelled" ||
+        /cancel/i.test(String(body.error_Message || "")) ||
+        /cancel/i.test(String(body.field9 || ""));
 
-        }
-
-        // Fallback: verify via PayU API (for GET requests or if POST doesn't have status)
-        const data = await payuClient.verifyPayment(txnid);
-        const statusObj = data?.transaction_details?.[txnid];
-
-
-        if (!statusObj) {
-            const failureUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=not_found`;
-            return res.send(createLoadingPage(failureUrl, 2000));
-        }
-
-        if (statusObj.status === "success") {
-            const successUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentSuccessfulScreen?txnid=${encodeURIComponent(txnid)}`;
-            return res.send(createLoadingPage(successUrl, 2000));
-        }
-
-        const failureUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=${encodeURIComponent(statusObj.status)}`;
+      if (String(body.status || "").toLowerCase() === "success") {
+        const successUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentSuccessfulScreen?txnid=${encodeURIComponent(txnid)}`;
+        return res.send(createLoadingPage(successUrl, 2000));
+      } else if (isCancelled) {
+        const cancelUrl = `https://uat-k42.insuranceapp.flashaid.in/PayUPayments`;
+        return res.send(createLoadingPage(cancelUrl, 2000));
+      } else {
+        const failureUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=${encodeURIComponent(body.status)}`;
         return res.send(createLoadingPage(failureUrl, 2000));
-
-    } catch (err) {
-        console.error("[PayU] verifyPayment error:", err);
-        const errorUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=verification_failed`;
-        return res.send(createLoadingPage(errorUrl, 2000));
+      }
     }
+
+    // 2) GET fallback: verify via PayU API
+    const data = await payuClient.verifyPayment(txnid);
+    console.log("=== PayU API Verification Data ===");
+
+    const statusObj = data?.transaction_details?.[txnid];
+    if (!statusObj) {
+      const failureUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=not_found`;
+      return res.send(createLoadingPage(failureUrl, 2000));
+    }
+
+    // Update DB from verification response (only allowed columns)
+    try {
+      await storeTransactionDetails({
+        ...statusObj,
+        txnid,
+        source: "api_verification",
+        api_response: data
+      });
+    } catch (dbError) {
+      console.error("Failed to update insurance from API verification:", dbError);
+    }
+
+    if (String(statusObj.status || "").toLowerCase() === "success") {
+      const successUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentSuccessfulScreen?txnid=${encodeURIComponent(txnid)}`;
+      return res.send(createLoadingPage(successUrl, 2000));
+    }
+
+    const failureUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=${encodeURIComponent(statusObj.status)}`;
+    return res.send(createLoadingPage(failureUrl, 2000));
+
+  } catch (err) {
+    console.error("[PayU] verifyPayment error:", err);
+
+    // Best effort: mark as FAILED (within allowed statuses)
+    try {
+      await storeTransactionDetails({
+        txnid,
+        status: "failed",
+        error_message: err.message,
+        source: "verification_error",
+        created_at: new Date()
+      });
+    } catch (dbError) {
+      console.error("Failed to store error transaction:", dbError);
+    }
+
+    const errorUrl = `https://uat-k42.insuranceapp.flashaid.in/PaymentFailedScreen?status=verification_failed`;
+    return res.send(createLoadingPage(errorUrl, 2000));
+  }
 }
