@@ -3,7 +3,7 @@ name: Deploy Node Backend to AWS
 on:
   push:
     branches:
-      - stage
+      - main
 
 jobs:
   deploy:
@@ -16,11 +16,11 @@ jobs:
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.AWS_SSH_KEY }}
+          ssh-private-key: ${{ secrets.AWS_SSH_KEY_PROD }}
 
       - name: Deploy on AWS
         run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.AWS_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.AWS_HOST_PROD }} << 'EOF'
             cd /home/ubuntu/insurance-backend
 
             echo "Pulling latest changes..."
